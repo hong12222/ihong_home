@@ -1,236 +1,89 @@
-<!--
-  index.html
-  说明: 优化后的跳转/加载页
-  改进点:
-    - 更精致的动态背景 (多层渐变 + 轻微运动)
-    - 增强的进度表现: 条形 + 圆环双指示器 + 倒计时数字
-    - 支持通过 URL 查询参数 ?dest=... 覆盖跳转地址
-    - 支持 prefers-reduced-motion 无动画模式
-    - 更好的可访问性(对比、aria 标签、无 JS 回退链接)
-    - 保持 Design A / B 切换，但样式更统一、精细
-    - 可修改 AUTO_DELAY 常量控制自动跳转时间
--->
 <!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>正在准备 — 跳转到自我介绍</title>
-  <meta name="description" content="跳转到我的自我介绍页 — 模拟加载动画，支持手动跳转和无障碍选项。">
+  <meta name="description" content="跳转到我的自我介绍页 — 立即跳转并显示目标链接（无动画）。">
   <style>
-    :root{
-      --bg1: #071026; --bg2:#061b32; --card:rgba(255,255,255,0.03);
-      --accentA1:#ff9a8b; --accentA2:#fecf6a;    /* A */
-      --accentB1:#7c3aed; --accentB2:#06b6d4;    /* B */
-      --text:#eaf2ff; --muted:#9fb0c8; --glass:rgba(255,255,255,0.04);
-      --radius:16px; --card-padding:28px; --delay:4200;
-    }
-    /* reset & layout */
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;color:var(--text);background:linear-gradient(180deg,var(--bg1),var(--bg2));}
-    body{display:flex;align-items:center;justify-content:center;padding:28px}
-    .stage{width:min(980px,96vw);display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:center}
-
-    /* animated background layer */
-    .bg{position:fixed;inset:0;z-index:-1;overflow:hidden}
-    .bg:before{content:"";position:absolute;inset:-20%;background:radial-gradient(800px 400px at 10% 20%,rgba(124,58,237,0.12),transparent),radial-gradient(600px 300px at 90% 80%,rgba(6,182,212,0.08),transparent);filter:blur(40px);transform:translateZ(0);animation:moveBg 12s linear infinite}
-    @keyframes moveBg{0%{transform:translateY(0) scale(1)}50%{transform:translateY(-6%) scale(1.02)}100%{transform:translateY(0) scale(1)}}
-
-    /* main card */
-    .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:var(--card-padding);border-radius:var(--radius);backdrop-filter: blur(8px);box-shadow: 0 12px 40px rgba(2,6,23,0.6)}
-    .header{display:flex;gap:16px;align-items:center}
-    .logo{width:64px;height:64px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#04263b}
-    .title{font-size:20px;margin:0}
-    .subtitle{color:var(--muted);font-size:13px;margin-top:6px}
-
-    .content{display:flex;gap:22px;align-items:center;margin-top:18px}
-    .left{flex:1}
-
-    /* progress area */
-    .progressWrap{display:flex;gap:16px;align-items:center}
-    .barWrap{flex:1}
-    .progress{height:12px;background:rgba(255,255,255,0.04);border-radius:999px;overflow:hidden}
-    .bar{height:100%;width:0;background:linear-gradient(90deg,var(--accentA1),var(--accentA2));transition:width 160ms linear}
-    .meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;color:var(--muted);font-size:13px}
-
-    /* circular indicator */
-    .circle{width:84px;height:84px;display:grid;place-items:center;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));box-shadow:inset 0 1px 0 rgba(255,255,255,0.02)}
-    svg{display:block}
-    .count{font-weight:700;font-size:18px}
-    .small{font-size:12px;color:var(--muted)}
-
-    /* side panel */
-    .side{display:flex;flex-direction:column;gap:18px}
-    .panel{padding:16px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border:1px solid rgba(255,255,255,0.02)}
-    .designToggle{display:flex;gap:8px}
-    .btn{appearance:none;border:0;padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,var(--accentA1),var(--accentA2));color:#04263b;font-weight:700;cursor:pointer}
-    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--text)}
-
-    .preview{height:110px;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;justify-content:center}
-    .line{height:10px;border-radius:6px;background:rgba(255,255,255,0.03)}
-
-    /* design-specific themes (applied on html element) */
-    .themeA{--accentA1:var(--accentA1);--accentA2:var(--accentA2)}
-    .themeB{--accentA1:var(--accentB1);--accentA2:var(--accentB2)}
-
-    /* utilities */
+    :root{--bg1:#071026;--bg2:#061b32;--text:#eaf2ff;--muted:#9fb0c8;--accent:#7c3aed}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;color:var(--text);background:linear-gradient(180deg,var(--bg1),var(--bg2));}
+    body{display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{max-width:820px;width:100%;padding:28px;border-radius:12px;background:rgba(255,255,255,0.02);box-shadow:0 10px 30px rgba(0,0,0,0.4)}
+    h1{margin:0;font-size:20px}
+    .subtitle{color:var(--muted);margin-top:6px;font-size:13px}
+    .destBox{margin-top:20px;padding:18px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;gap:8px}
+    .destUrl{font-weight:700;color:var(--accent);word-break:break-all}
+    .actions{margin-top:16px;display:flex;gap:10px}
+    .btn{appearance:none;border:0;padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,#ff9a8b,#fecf6a);color:#04263b;font-weight:700;cursor:pointer}
+    .link{color:var(--accent);text-decoration:none;font-weight:700}
     .muted{color:var(--muted)}
-    .controls{display:flex;gap:8px}
-    .link{color:var(--accentA2);font-weight:700;text-decoration:none}
-
-    /* responsive */
-    @media (max-width:880px){.stage{grid-template-columns:1fr;}.side{order:2}}
-
-    /* reduced motion */
-    @media (prefers-reduced-motion: reduce){
-      .bg:before, .bar, svg {animation:none;transition:none}
-    }
   </style>
 </head>
-<body class="themeA">
-  <div class="bg" aria-hidden></div>
-  <div class="stage">
-    <main class="card" role="main" aria-labelledby="heading">
-      <div class="header">
-        <div class="logo" id="logo" aria-hidden>ih</div>
-        <div>
-          <h1 id="heading" class="title">准备前往我的自我介绍</h1>
-          <div class="subtitle">此页面会模拟加载并在完成后自动跳转；也可手动跳转或使用链接直接访问。</div>
-        </div>
-      </div>
+<body>
+  <main class="card" role="main" aria-labelledby="heading">
+    <h1 id="heading">准备前往我的自我介绍</h1>
+    <div class="subtitle">为避免 404，我会在下面显示将要前往的目标并立即跳转（支持 ?dest= 覆盖）。</div>
 
-      <div class="content">
-        <div class="left">
-          <div class="progressWrap" aria-hidden>
-            <div class="barWrap">
-              <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                <div class="bar" id="bar"></div>
-              </div>
-              <div class="meta"><div id="statusText">等待开始...</div><div class="muted">自动跳转倒计时: <span id="countdown">--</span>s</div></div>
-            </div>
-            <div class="circle" aria-hidden>
-              <svg width="64" height="64" viewBox="0 0 64 64">
-                <defs><linearGradient id="g1" x1="0%" x2="100%"><stop offset="0%" stop-color="var(--accentA1)"/><stop offset="100%" stop-color="var(--accentA2)"/></linearGradient></defs>
-                <circle cx="32" cy="32" r="28" stroke="rgba(255,255,255,0.04)" stroke-width="6" fill="none"/>
-                <circle id="arc" cx="32" cy="32" r="28" stroke="url(#g1)" stroke-width="6" fill="none" stroke-linecap="round" stroke-dasharray="175.9" stroke-dashoffset="175.9" transform="rotate(-90 32 32)"/>
-              </svg>
-              <div style="position:relative;top:-54px;text-align:center"><div class="count" id="pct">0%</div><div class="small">前往中</div></div>
-            </div>
-          </div>
+    <div class="destBox" id="destBox" aria-live="polite">
+      <div class="muted">目标站点：</div>
+      <div class="destUrl" id="destUrl">--</div>
+      <div class="muted" id="notice">正在准备跳转…</div>
+    </div>
 
-          <p class="muted" style="margin-top:18px">若页面未能自动跳转，请点击下面的“立即前往”或直接访问链接。</p>
+    <div class="actions">
+      <button id="openBtn" class="btn">立即打开</button>
+      <a id="openNew" class="link" href="#" target="_blank" rel="noopener noreferrer">在新窗口打开</a>
+    </div>
 
-          <div style="display:flex;gap:12px;margin-top:14px">
-            <button id="goBtn" class="btn">立即前往</button>
-            <button id="moreBtn" class="btn ghost">查看目标</button>
-          </div>
-          <div style="margin-top:12px;color:var(--muted);font-size:13px">无 JS 回退：<noscript><a href="intro.html" class="link">前往自我介绍 (intro.html)</a></noscript></div>
-        </div>
-      </div>
-    </main>
-
-    <aside class="side">
-      <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center"><strong>风格与设置</strong></div>
-        <div style="margin-top:12px" class="designToggle">
-          <button id="themeA" class="btn">Design A</button>
-          <button id="themeB" class="btn ghost">Design B</button>
-        </div>
-        <div style="margin-top:12px" class="preview">
-          <div style="display:flex;justify-content:space-between;align-items:center"><div style="width:58px;height:36px;border-radius:8px;background:linear-gradient(90deg,var(--accentA1),var(--accentA2))"></div><div class="muted">动画 · 渐变</div></div>
-          <div class="line" style="width:80%"></div>
-          <div class="line" style="width:55%"></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center"><strong>说明</strong></div>
-        <ul style="margin:12px 0 0 18px;color:var(--muted)">
-          <li>默认自动跳转时长: <span id="autoDelayText">4.2s</span></li>
-          <li>可在顶部 JS 中调整 AUTO_DELAY 或通过 URL 参数立即覆盖 dest</li>
-          <li>支持无障碍模式: 系统偏好减少动效时会停止动画</li>
-        </ul>
-      </div>
-    </aside>
-  </div>
+    <div style="margin-top:12px;color:var(--muted);font-size:13px">无 JS 回退：<noscript><a href="i泓主页.html" class="link">前往自我介绍 (i泓主页.html)</a></noscript></div>
+  </main>
 
   <script>
-    // 配置：默认目标与自动跳转时长（毫秒）
-    const DEFAULT_DEST = 'intro.html';
-    const AUTO_DELAY = 4200; // 可改成你想要的时长
+    // 修复说明：原先默认目标为 intro.html，但仓库中实际文件名为 i泓主页.html。
+    // 本次修改：将默认目标改为 i泓主页.html；页面在加载时立即显示目标并执行跳转（不播放动画）。
 
-    document.getElementById('autoDelayText').textContent = (AUTO_DELAY/1000).toFixed(1) + 's';
+    const DEFAULT_DEST = 'i泓主页.html';
 
-    // 支持通过 URL 参数 ?dest=... 覆盖目标地址（自动或手动跳转）
-    function getQueryParam(name){
-      try{ const params = new URLSearchParams(location.search); return params.get(name);}catch(e){return null}
-    }
+    function getQueryParam(name){ try{ const params = new URLSearchParams(location.search); return params.get(name);}catch(e){return null} }
     const destParam = getQueryParam('dest');
     const DEST = destParam ? decodeURIComponent(destParam) : DEFAULT_DEST;
 
-    // DOM 元素
-    const bar = document.getElementById('bar');
-    const arc = document.getElementById('arc');
-    const pct = document.getElementById('pct');
-    const statusText = document.getElementById('statusText');
-    const countdownEl = document.getElementById('countdown');
-    const goBtn = document.getElementById('goBtn');
-    const moreBtn = document.getElementById('moreBtn');
-    const themeA = document.getElementById('themeA');
-    const themeB = document.getElementById('themeB');
+    const destUrlEl = document.getElementById('destUrl');
+    const noticeEl = document.getElementById('notice');
+    const openBtn = document.getElementById('openBtn');
+    const openNew = document.getElementById('openNew');
 
-    // 主题切换
-    function setTheme(t){ if(t==='A'){document.body.classList.remove('themeB');document.body.classList.add('themeA');themeA.classList.remove('ghost');themeB.classList.add('ghost')}else{document.body.classList.remove('themeA');document.body.classList.add('themeB');themeB.classList.remove('ghost');themeA.classList.add('ghost')}}
-    themeA.addEventListener('click',()=>setTheme('A')); themeB.addEventListener('click',()=>setTheme('B'));
+    // 显示目标（可见给用户）
+    destUrlEl.textContent = DEST;
+    openNew.href = DEST;
 
-    // 支持 prefers-reduced-motion
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // 立即跳转（不做动画占用时间）
+    // 为了让用户看到目标文字（极短时间），先让浏览器完成渲染再跳转。
+    // 使用 requestAnimationFrame 两次可以保证一次微小延迟但立即跳转且不会显示动画。
+    function doRedirect(){
+      try{
+        // 若用户手动点击“立即打开”，优先使用该操作
+        openBtn.addEventListener('click', ()=>{ window.location.href = DEST });
+        openNew.addEventListener('click', ()=>{ /* link has href */ });
 
-    // 进度与倒计时
-    let start = performance.now();
-    let rafId = null;
-    const total = Math.max(400, AUTO_DELAY);
-    const startTime = performance.now();
+        // 首先将提示改为明确的目标信息
+        noticeEl.textContent = '即将前往：' + DEST;
 
-    function updateProgress(ts){
-      const elapsed = ts - start;
-      const p = Math.min(1, elapsed / total);
-      const percent = Math.round(p * 100);
-      bar.style.width = percent + '%';
-      // arc stroke-dashoffset from full(175.9) -> 0
-      const circumference = 2 * Math.PI * 28; // ~175.9
-      const offset = Math.round((1 - p) * circumference);
-      if(arc) arc.style.strokeDashoffset = offset;
-      pct.textContent = percent + '%';
-      statusText.textContent = percent < 100 ? `加载中 ${percent}%` : '完成，准备跳转...';
-      const remain = Math.ceil((1 - p) * total / 1000);
-      countdownEl.textContent = remain > 0 ? String(remain) : '0';
-      // update aria
-      const prog = document.querySelector('[role="progressbar"]'); if(prog) prog.setAttribute('aria-valuenow', String(percent));
-      if(p < 1){ rafId = requestAnimationFrame(updateProgress) } else { setTimeout(()=> { try{ window.location.href = DEST }catch(e){} }, 300) }
+        // 在下一个帧跳转，浏览器会先渲染上面的文字
+        requestAnimationFrame(()=> requestAnimationFrame(()=> { window.location.href = DEST }));
+      }catch(e){
+        // 如果跳转失败，给出可点击链接
+        noticeEl.innerHTML = '无法自动跳转，请点击： <a class="link" href="' + DEST + '">' + DEST + '</a>';
+      }
     }
 
-    // 如果用户偏好减少动效，则直接显示完成状态并显示链接
-    if(reduce){ bar.style.width='100%'; if(arc) arc.style.strokeDashoffset = 0; pct.textContent='100%'; statusText.textContent='已就绪 — 点击前往'; countdownEl.textContent='0' } else { start = performance.now(); rafId = requestAnimationFrame(updateProgress) }
-
-    // 手动跳转
-    goBtn.addEventListener('click', ()=> { window.location.href = DEST })
-    moreBtn.addEventListener('click', ()=> { window.open(DEST,'_blank') })
-
-    // 支持键盘快捷键: Enter 或 Space 激活跳转按钮
-    window.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' || e.key === ' '){ goBtn.focus(); } })
-
-    // 可视性：当页面不可见时暂停动画计时，以减少资源消耗
-    let hiddenStart = null; document.addEventListener('visibilitychange', ()=>{
-      if(document.hidden){ if(rafId) cancelAnimationFrame(rafId); hiddenStart = performance.now(); }
-      else{ if(hiddenStart){ const dt = performance.now() - hiddenStart; start += dt; hiddenStart = null; rafId = requestAnimationFrame(updateProgress) } }
-    });
-
-    // 无障碍：为 logo 提供 alt 文本和 title
-    const logo = document.getElementById('logo'); if(logo) logo.setAttribute('title', 'ihong 的主页');
-
-    // 初始化主题按钮显示
-    setTheme('A');
+    // 一旦 DOM 可用就执行跳转
+    if (document.readyState === 'complete' || document.readyState === 'interactive'){
+      doRedirect();
+    } else {
+      window.addEventListener('DOMContentLoaded', doRedirect);
+    }
   </script>
 </body>
 </html>
