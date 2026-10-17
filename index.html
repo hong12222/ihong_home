@@ -1,0 +1,206 @@
+<!--
+  index.html
+  说明: 这是一个“高级”的跳转/加载页，包含两个外观设计（Design A / Design B），外观相近但样式不同。
+  默认目标页面: "intro.html" —— 如果你的自我介绍网页文件名不同，请修改下面的 JS 常量 DEST 为你的页面路径或外部 URL（例如: "about.html" 或 "https://example.com"）。
+  功能:
+    - 自动模拟加载（带百分比进度条、过渡动画）并在完成后跳转到目标页面
+    - 手动“立即前往”按钮可以立刻跳转
+    - 提供 Design A / Design B 的切换，且两者的动画/布局相似
+    - 回退兼容：若 JS 被禁用，则显示明显的链接供用户点击
+-->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>正在加载 — 跳转到我的自我介绍</title>
+  <style>
+    :root{
+      --bg:#0f1724; /* 深色背景 */
+      --card:#0b1220;
+      --accent:#6ee7b7;
+      --accent-2:#60a5fa;
+      --muted:#94a3b8;
+      --glass: rgba(255,255,255,0.04);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial}
+    body{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#071024 0%, #071a33 100%);color:#e6eef8}
+    .wrap{width:min(920px,94vw);display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:center}
+
+    /* 左侧：主加载面板 */
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:28px;border-radius:var(--radius);backdrop-filter: blur(6px);box-shadow:0 6px 30px rgba(2,6,23,0.6)}
+    .title{display:flex;align-items:center;gap:14px}
+    .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#04263b}
+    .h1{font-size:20px;margin:0}
+    .desc{color:var(--muted);font-size:13px;margin-top:6px}
+
+    .loaderWrap{margin-top:20px}
+    .progress{height:12px;background:rgba(255,255,255,0.04);border-radius:999px;overflow:hidden}
+    .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width 0.2s linear}
+    .meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;color:var(--muted);font-size:13px}
+    .spinner{width:36px;height:36px;border-radius:50%;display:inline-grid;place-items:center;background:var(--glass);backdrop-filter: blur(6px)}
+
+    /* 右侧：切换面板 */
+    .side{display:flex;flex-direction:column;gap:18px}
+    .designCard{padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:inset 0 1px 0 rgba(255,255,255,0.02)}
+    .switch{display:flex;gap:8px;align-items:center}
+
+    .btn{appearance:none;border:0;padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#04263b;font-weight:600;cursor:pointer}
+    .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--accent-2)}
+
+    /* design variants */
+    .preview{height:120px;border-radius:10px;display:flex;flex-direction:column;gap:8px;padding:12px;justify-content:center}
+    .preview .line{height:12px;border-radius:6px;background:rgba(255,255,255,0.03)}
+
+    /* small helpers */
+    .muted{color:var(--muted)}
+
+    /* design-specific overrides */
+    .designA{--accent:#f472b6;--accent-2:#ffb86b}
+    .designB{--accent:#7c3aed;--accent-2:#06b6d4}
+
+    /* responsive */
+    @media (max-width:880px){ .wrap{grid-template-columns:1fr; } .side{order:2} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <main class="panel" id="mainPanel">
+      <div class="title">
+        <div class="logo" aria-hidden>ih</div>
+        <div>
+          <h1 class="h1">欢迎 — 即将跳转到我的自我介绍</h1>
+          <div class="desc">页面会模拟加载：漂亮的过渡与两种相似的设计选择，支持手动跳转。</div>
+        </div>
+      </div>
+
+      <div class="loaderWrap">
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div class="bar" id="bar"></div>
+        </div>
+        <div class="meta">
+          <div class="muted" id="statusText">初始化...</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="spinner" id="spinner" aria-hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.06)" stroke-width="3"/><path id="sp" d="M22 12a10 10 0 0 0-10-10" stroke="white" stroke-opacity="0.85" stroke-width="3" stroke-linecap="round"/></svg>
+            </div>
+            <button class="btn" id="skipBtn">立即前往</button>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin-top:18px;color:var(--muted);font-size:13px">提示：如果自动跳转失败，请点击按钮或下面的链接手动访问。</p>
+      <noscript>
+        <div style="margin-top:12px;padding:12px;background:rgba(255,255,255,0.02);border-radius:10px">检测到未启用 JavaScript，请 <a href="intro.html" style="color:var(--accent);font-weight:600">点击此处前往自我介绍</a>。</div>
+      </noscript>
+    </main>
+
+    <aside class="side">
+      <div class="designCard">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700">外观选择</div>
+          <div class="switch">
+            <button id="btnA" class="btn secondary">Design A</button>
+            <button id="btnB" class="btn">Design B</button>
+          </div>
+        </div>
+        <div class="preview designA" id="previewA" style="margin-top:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="width:64px;height:40px;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent-2))"></div>
+            <div style="text-align:right;color:var(--muted)">加载动画 · 渐变</div>
+          </div>
+          <div class="line" style="width:80%"></div>
+          <div class="line" style="width:55%"></div>
+        </div>
+      </div>
+
+      <div class="designCard">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700">快速说明</div>
+        </div>
+        <ul style="margin:12px 0 0 18px;color:var(--muted);padding:0">
+          <li>模拟加载并自动跳转（默认 4 秒）</li>
+          <li>手动点击“立即前往”可以跳过</li>
+          <li>修改顶部 JS 常量来更改目标页面</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // 修改这里来设置目标跳转页面（支持相对路径或完整 URL）
+    const DEST = 'intro.html';
+    const AUTO_DELAY = 4000; // 毫秒，模拟加载总时长
+
+    const bar = document.getElementById('bar');
+    const statusText = document.getElementById('statusText');
+    const spinner = document.getElementById('sp');
+    const skipBtn = document.getElementById('skipBtn');
+    const mainPanel = document.getElementById('mainPanel');
+
+    // design buttons
+    const btnA = document.getElementById('btnA');
+    const btnB = document.getElementById('btnB');
+
+    function setDesign(which){
+      if(which === 'A'){
+        document.documentElement.classList.add('designA');
+        document.documentElement.classList.remove('designB');
+        btnA.classList.remove('secondary'); btnA.classList.add('btn');
+        btnB.classList.remove('btn'); btnB.classList.add('btn','secondary');
+      }else{
+        document.documentElement.classList.add('designB');
+        document.documentElement.classList.remove('designA');
+        btnB.classList.remove('secondary'); btnB.classList.add('btn');
+        btnA.classList.remove('btn'); btnA.classList.add('btn','secondary');
+      }
+    }
+    btnA.addEventListener('click', ()=> setDesign('A'));
+    btnB.addEventListener('click', ()=> setDesign('B'));
+
+    // animate the small spinner path (rotating arc)
+    let angle = 0;
+    function animateSpinner(){
+      angle = (angle + 6) % 360;
+      const path = document.querySelector('#sp');
+      if(path) path.setAttribute('transform', `rotate(${angle} 12 12)`);
+      requestAnimationFrame(animateSpinner);
+    }
+    animateSpinner();
+
+    // progress simulation
+    let start = null;
+    function step(ts){
+      if(!start) start = ts;
+      const elapsed = ts - start;
+      const p = Math.min(1, elapsed / AUTO_DELAY);
+      const percent = Math.round(p * 100);
+      bar.style.width = percent + '%';
+      statusText.textContent = percent < 100 ? `加载中 ${percent}%` : '完成，准备跳转...';
+      if(p < 1){
+        requestAnimationFrame(step);
+      }else{
+        // 小延迟再跳转，给完成动画时间
+        setTimeout(()=> {
+          try{
+            window.location.href = DEST;
+          }catch(e){
+            // do nothing
+          }
+        }, 350);
+      }
+    }
+    requestAnimationFrame(step);
+
+    // manual skip
+    skipBtn.addEventListener('click', ()=>{
+      window.location.href = DEST;
+    });
+
+    // Initialize default design to A
+    setDesign('A');
+  </script>
+</body>
+</html>
